@@ -1,0 +1,103 @@
+{
+  "info": {
+    "_postman_id": "c229c0c6-8039-4c65-99df-66815418a54e",
+    "name": "Transaction Webhook Service",
+    "description": "Manual requests for the health check, transaction webhook, and transaction status APIs.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Health check",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{base_url}}/"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Returns healthy status', function () {",
+              "  pm.response.to.have.status(200);",
+              "  pm.expect(pm.response.json().status).to.eql('HEALTHY');",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Submit transaction webhook",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"transaction_id\": \"{{transaction_id}}\",\n  \"source_account\": \"acc_user_789\",\n  \"destination_account\": \"acc_merchant_456\",\n  \"amount\": 1500,\n  \"currency\": \"INR\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": "{{base_url}}/v1/webhooks/transactions"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Accepts the transaction', function () {",
+              "  pm.response.to.have.status(202);",
+              "  pm.expect(pm.response.json()).to.eql({ status: 'accepted' });",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Get transaction status",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{base_url}}/v1/transactions/{{transaction_id}}"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Returns the transaction', function () {",
+              "  pm.response.to.have.status(200);",
+              "  const transactions = pm.response.json();",
+              "  pm.expect(transactions).to.be.an('array').that.has.lengthOf(1);",
+              "  pm.expect(transactions[0].transaction_id).to.eql(pm.collectionVariables.get('transaction_id'));",
+              "  pm.expect(['PROCESSING', 'PROCESSED']).to.include(transactions[0].status);",
+              "});"
+            ]
+          }
+        }
+      ]
+    }
+  ],
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:8000"
+    },
+    {
+      "key": "transaction_id",
+      "value": "txn_manual_test_001"
+    }
+  ]
+}
