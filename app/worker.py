@@ -10,27 +10,33 @@ log = logging.getLogger("txn.worker")
 
 
 async def process_transaction(transaction_id: str) -> None:
-    """Placeholder for real work (external API calls, ledger updates, ...).
+    """Simulate a slow external transaction operation."""
+    log.info("processing %s", transaction_id)
+    await asyncio.sleep(config.DELAY_SECONDS)
 
-    The 30s delay is already enforced by `process_after` in the database.
-    """
-    await asyncio.sleep(0)
+
+async def process_and_mark(pool: asyncpg.Pool, transaction_id: str) -> None:
+    try:
+        await process_transaction(transaction_id)
+        await db.mark_processed(pool, transaction_id)
+        log.info("processed %s", transaction_id)
+    except Exception:
+        # The lease expires and the row is retried automatically.
+        log.exception("failed %s, will retry after lease", transaction_id)
 
 
 async def run_worker(pool: asyncpg.Pool) -> None:
     while True:
         try:
             ids = await db.claim_due_transactions(
-                pool, config.LEASE_SECONDS, config.CLAIM_BATCH_SIZE
+                pool,
+                max(config.LEASE_SECONDS, config.DELAY_SECONDS + 30),
+                config.CLAIM_BATCH_SIZE,
             )
-            for tid in ids:
-                try:
-                    await process_transaction(tid)
-                    await db.mark_processed(pool, tid)
-                    log.info("processed %s", tid)
-                except Exception:
-                    # Lease expires -> row is retried automatically
-                    log.exception("failed %s, will retry after lease", tid)
+            if ids:
+                await asyncio.gather(
+                    *(process_and_mark(pool, tid) for tid in ids)
+                )
             if not ids:
                 await asyncio.sleep(config.POLL_INTERVAL_SECONDS)
         except asyncio.CancelledError:

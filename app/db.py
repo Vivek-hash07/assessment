@@ -26,7 +26,7 @@ CREATE INDEX IF NOT EXISTS idx_txn_pending
 INSERT_SQL = """
 INSERT INTO transactions
     (transaction_id, source_account, destination_account, amount, currency, process_after)
-VALUES ($1, $2, $3, $4, $5, now() + make_interval(secs => $6))
+VALUES ($1, $2, $3, $4, $5, now())
 ON CONFLICT (transaction_id) DO NOTHING
 """
 
@@ -73,13 +73,12 @@ async def insert_transaction(
     destination_account: str,
     amount,
     currency: str,
-    delay_seconds: float,
 ) -> None:
-    """Idempotent insert: a duplicate transaction_id is silently ignored."""
+    """Persist a transaction for immediate background processing."""
     await pool.execute(
         INSERT_SQL,
         transaction_id, source_account, destination_account,
-        amount, currency, float(delay_seconds),
+        amount, currency,
     )
 
 

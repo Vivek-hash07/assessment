@@ -4,7 +4,7 @@ from datetime import datetime, timezone
 import asyncpg
 from fastapi import APIRouter, Depends, HTTPException, Request
 
-from app import config, db
+from app import db
 from app.schemas import WebhookPayload
 from app.utils import iso
 
@@ -29,7 +29,6 @@ async def receive_webhook(payload: WebhookPayload, pool: asyncpg.Pool = Depends(
         payload.destination_account,
         payload.amount,
         payload.currency.upper(),
-        config.DELAY_SECONDS,
     )
     return {"status": "accepted"}
 
